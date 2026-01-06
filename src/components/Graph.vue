@@ -13,18 +13,19 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, inject, ref, watch } from 'vue';
+import { onMounted, onUnmounted, inject, ref, watch, shallowRef } from 'vue';
 import Chart from 'chart.js/auto';
 
 const history = inject('history');
+const graphTrigger = inject('graphTrigger'); // We listen to this now!
 const chartCanvas = ref(null);
-let chartInstance = null;
+const chartInstance = shallowRef(null);
 
 const initChart = () => {
   if (!chartCanvas.value) return;
   const ctx = chartCanvas.value.getContext('2d');
 
-  chartInstance = new Chart(ctx, {
+  chartInstance.value = new Chart(ctx, {
     type: 'line',
     data: {
       labels: history.labels,
@@ -33,17 +34,17 @@ const initChart = () => {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 400 }, // Short animation to prevent lag
+      animation: { duration: 0 }, // Disable animation for instant updates
       elements: {
         line: {
           borderWidth: 3,
-          showLine: true // FORCE lines to show
-        }
+          showLine: true,
+          tension: 0.3
+        },
+        point: { radius: 0, hitRadius: 20 }
       },
       scales: {
-        y: {
-          ticks: { callback: (value) => 'ƒ' + value.toLocaleString() }
-        }
+        y: { ticks: { callback: (value) => 'ƒ ' + value.toLocaleString() } }
       },
       plugins: {
         legend: { position: 'bottom' }
@@ -56,27 +57,30 @@ onMounted(() => {
   initChart();
 });
 
-// Watch history for changes
-watch(history, () => {
-  if (chartInstance) {
-    // We update the chart data references specifically
-    chartInstance.data.labels = history.labels;
-    chartInstance.data.datasets = history.datasets;
-    chartInstance.update('none'); // 'none' means update without reset animation (saves CPU)
+// WATCH FIX: Instead of watching the heavy history object, we watch the simple counter
+watch(graphTrigger, () => {
+  if (chartInstance.value) {
+    // Manually ensure the chart has the latest data references
+    chartInstance.value.data.labels = history.labels;
+    chartInstance.value.data.datasets = history.datasets;
+
+    // Smooth update
+    requestAnimationFrame(() => {
+      chartInstance.value.update('none');
+    });
   }
-}, { deep: true });
+});
 
 onUnmounted(() => {
-  if (chartInstance) {
-    chartInstance.destroy(); // Clean up memory when leaving the page
+  if (chartInstance.value) {
+    chartInstance.value.destroy();
+    chartInstance.value = null;
   }
 });
 </script>
 
 <style scoped>
-.animate-pulse {
-  animation: pulse 2s infinite;
-}
+.animate-pulse { animation: pulse 2s infinite; }
 @keyframes pulse {
   0% { opacity: 1; }
   50% { opacity: 0.4; }
