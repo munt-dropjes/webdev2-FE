@@ -3,17 +3,30 @@ import Rules from '../components/Rules.vue';
 import Tasks from '../components/Tasks.vue';
 import Stocks from '../components/StockDivider.vue';
 import Graph from '../components/Graph.vue';
+import Login from '../components/Login.vue';
 
 const routes = [
     {path: '/', component: Rules},
     {path: '/opdrachten', component: Tasks},
     {path: '/aandelen', component: Stocks},
-    {path: '/grafiek', component: Graph}
+    {path: '/grafiek', component: Graph},
+    { path: '/login', component: Login }
 ];
 
 const router = createRouter({
     history: createWebHistory(),
     routes
+});
+
+router.beforeEach((to, from, next) => {
+    const publicPages = ['/login'];
+    const authRequired = !publicPages.includes(to.path);
+    const loggedIn = localStorage.getItem('authToken');
+
+    if (authRequired && !loggedIn) {
+        return next('/login');
+    }
+    next();
 });
 
 export default router;

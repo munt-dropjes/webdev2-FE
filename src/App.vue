@@ -55,14 +55,9 @@
 
 <script setup>
 import {reactive, provide, onMounted, onUnmounted, ref, watch} from 'vue';
+import { apiCall } from './services/api';
 
-const families = reactive([
-    {name: 'Haviken', cash: 100000, bgColor: 'haviken', color: '#ff69b4'},
-    {name: 'Spechten', cash: 150000, bgColor: 'spechten', color: '#198754'},
-    {name: 'Sperwers', cash: 100000, bgColor: 'sperwers', color: '#ffc107'},
-    {name: 'Zwaluwen', cash: 200000, bgColor: 'zwaluwen', color: '#0d6efd'},
-    {name: 'Valken', cash: 100000, bgColor: 'valken', color: '#fd7e14'},
-]);
+const families = reactive([]);
 
 const history = reactive({
     labels: [],
@@ -90,6 +85,19 @@ const getNetWorth = (family) => {
         stockValue += (sharePrice * percentageOwned);
     });
     return family.cash + stockValue;
+};
+
+const loadFamilies = async () => {
+    try {
+        // Note: You must add this route to your index.php backend first!
+        const data = await apiCall('/api/families');
+        if (data) {
+            // Update the reactive array without losing reference
+            families.splice(0, families.length, ...data);
+        }
+    } catch (e) {
+        console.error("Failed to load families", e);
+    }
 };
 
 const recordSnapshot = () => {
@@ -124,6 +132,7 @@ watch(families, () => {
 
 let timer = null;
 onMounted(() => {
+    loadFamilies();
     recordSnapshot();
     timer = setInterval(recordSnapshot, 60000);
 });
@@ -133,6 +142,7 @@ onUnmounted(() => {
 });
 
 provide('families', families);
+provide('reloadFamilies', loadFamilies);
 provide('history', history);
 provide('graphTrigger', graphTrigger);
 </script>

@@ -1,7 +1,7 @@
 <template>
     <div class="card shadow-sm border-0">
         <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Live Koersverloop</h5>
+            <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Marktontwikkeling</h5>
             <span class="badge rounded-pill bg-danger animate-pulse">LIVE</span>
         </div>
         <div class="card-body">
@@ -13,7 +13,7 @@
 </template>
 
 <script setup>
-import {onMounted, onUnmounted, inject, ref, watch, shallowRef, toRaw} from 'vue';
+import {onMounted, onUnmounted, inject, ref, watch, shallowRef} from 'vue';
 import Chart from 'chart.js/auto';
 
 const history = inject('history');
@@ -48,7 +48,12 @@ const initChart = () => {
             },
             scales: {
                 y: {
-                    ticks: {callback: (value) => 'ƒ ' + value.toLocaleString()}
+                    ticks: {
+                        // FIX: Use standard function syntax to help IDE recognize 'value'
+                        callback: function (value) {
+                            return 'ƒ ' + value.toLocaleString();
+                        }
+                    }
                 }
             },
             plugins: {

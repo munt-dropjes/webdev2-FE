@@ -1,0 +1,39 @@
+const API_URL = import.meta.env.VITE_API_URL;
+
+export async function apiCall(endpoint, method = 'GET', body = null) {
+    const token = localStorage.getItem('authToken');
+
+    const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    };
+
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const options = {
+        method,
+        headers,
+    };
+
+    if (body) {
+        options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(`${API_URL}${endpoint}`, options);
+
+    // Handle 401 Unauthorized (Token expired)
+    if (response.status === 401) {
+        localStorage.removeItem('authToken');
+        window.location.href = '/login';
+        return null;
+    }
+
+    if (!response.ok) {
+        throw new Error(`API Error: ${response.statusText}`);
+    }
+
+    // Return null for 204 No Content, otherwise JSON
+    return response.status === 204 ? null : await response.json();
+}

@@ -98,6 +98,9 @@
 
 <script setup>
 import {ref, inject} from 'vue';
+import { apiCall } from '../services/api';
+
+const reloadFamilies = inject('reloadFamilies');
 
 const families = inject('families');
 const lastAction = ref('Nog geen scores ingevoerd.');
@@ -128,16 +131,29 @@ const taskData = {
     }
 };
 
-const applyScore = (familyName, position) => {
-    const family = families.find(f => f.name === familyName);
+const applyScore = async (familyName, position) => {
+    // Calculate amount based on position (keep your local logic or move to backend)
     const rewards = taskData[selectedLevel.value];
     let amount = 0;
-
     if (position === 1) amount = rewards.p1;
     else if (position === 2) amount = rewards.p2;
     else amount = rewards.p3;
 
-    family.cash += amount;
-    lastAction.value = `${familyName} kreeg ƒ ${amount.toLocaleString()} voor ${selectedTaskName.value}`;
+    try {
+        // Send update to Backend
+        // Note: You must add this route to your index.php!
+        await apiCall('/api/families/transaction', 'POST', {
+            family_name: familyName,
+            amount: amount,
+            reason: `${selectedTaskName.value} - Rank ${position}`
+        });
+
+        // Re-fetch data to get the new official totals
+        await reloadFamilies();
+
+        lastAction.value = `${familyName} score updated (ƒ ${amount})`;
+    } catch (e) {
+        alert("Error saving score: " + e.message);
+    }
 };
 </script>
