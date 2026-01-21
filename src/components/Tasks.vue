@@ -25,18 +25,11 @@
 
                 <div class="card border-info shadow-sm">
                     <div class="card-body">
-                        <h6 class="text-info text-uppercase small fw-bold">Beloningen voor
-                            {{ taskData[selectedLevel].label }}</h6>
+                        <h6 class="text-info text-uppercase small fw-bold">Beloningen voor {{ taskData[selectedLevel].label }}</h6>
                         <ul class="list-unstyled mb-0">
-                            <li><i class="bi bi-trophy-fill text-warning"></i> 1e: +ƒ
-                                {{ taskData[selectedLevel].p1.toLocaleString() }}
-                            </li>
-                            <li><i class="bi bi-award text-muted"></i> 2e: +ƒ
-                                {{ taskData[selectedLevel].p2.toLocaleString() }}
-                            </li>
-                            <li><i class="bi bi-x-circle text-danger"></i> 3e/Fout: ƒ
-                                {{ taskData[selectedLevel].p3.toLocaleString() }}
-                            </li>
+                            <li><i class="bi bi-trophy-fill text-warning"></i> 1e: +ƒ {{ taskData[selectedLevel].p1.toLocaleString() }}</li>
+                            <li><i class="bi bi-award text-muted"></i> 2e: +ƒ {{ taskData[selectedLevel].p2.toLocaleString() }}</li>
+                            <li><i class="bi bi-x-circle text-danger"></i> 3e/Fout: ƒ {{ taskData[selectedLevel].p3.toLocaleString() }}</li>
                         </ul>
                     </div>
                 </div>
@@ -59,7 +52,7 @@
                                 <thead class="table-light text-center">
                                 <tr>
                                     <th style="width: 20%">Positie</th>
-                                    <th>Toewijzen aan Familie</th>
+                                    <th>Toewijzen aan Bedrijf</th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -71,13 +64,13 @@
                                     </td>
                                     <td>
                                         <div class="row g-2">
-                                            <div v-for="f in families" :key="f.id" class="col-4">
+                                            <div v-for="c in companies" :key="c.id" class="col-4">
                                                 <button
-                                                    @click="applyScore(f.id, pos, f.name)"
+                                                    @click="applyScore(c.id, pos, c.name)"
                                                     class="btn btn-outline-dark w-100 btn-sm"
-                                                    :style="{ borderColor: f.color, color: 'black' }"
+                                                    :style="{ borderColor: c.color, color: 'black' }"
                                                 >
-                                                    {{ f.name }}
+                                                    {{ c.name }}
                                                 </button>
                                             </div>
                                         </div>
@@ -98,11 +91,11 @@
 </template>
 
 <script setup>
-import { ref, computed, inject } from 'vue'; // Import inject
+import { ref, inject } from 'vue';
 import { apiCall } from '../services/api';
 
-const families = inject('families');
-const reloadFamilies = inject('reloadFamilies');
+const companies = inject('companies');
+const reloadCompanies = inject('reloadCompanies');
 const lastAction = ref('Nog geen scores ingevoerd.');
 
 const selectedLevel = ref('klasse3');
@@ -131,7 +124,7 @@ const taskData = {
     }
 };
 
-const applyScore = async (familyId, position, familyName) => {
+const applyScore = async (companyId, position, companyName) => {
     if(!selectedTaskName.value) {
         alert("Selecteer eerst een taak!");
         return;
@@ -145,18 +138,16 @@ const applyScore = async (familyId, position, familyName) => {
     else amount = rewards.p3;
 
     try {
-        // 1. Send transaction to Backend
-        // Swagger: POST /api/transactions
+        // API Call to /api/transactions
         await apiCall('/api/transactions', 'POST', {
-            company_id: familyId,
+            company_id: companyId,
             amount: amount,
             description: `${selectedTaskName.value} - Rank ${position}`
         });
 
-        // 2. Refresh data to get new Cash and Net Worth
-        await reloadFamilies();
+        await reloadCompanies(); // Get new data
 
-        lastAction.value = `${familyName} kreeg ƒ ${amount.toLocaleString()} voor ${selectedTaskName.value}`;
+        lastAction.value = `${companyName} kreeg ƒ ${amount.toLocaleString()} voor ${selectedTaskName.value}`;
     } catch (e) {
         console.error(e);
         lastAction.value = "Fout bij opslaan: " + e.message;
