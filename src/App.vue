@@ -59,6 +59,9 @@ const graphTrigger = ref(0);
 
 // Load data from Backend API
 const loadCompanies = async () => {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+
     try {
         const data = await apiCall('/api/companies');
 

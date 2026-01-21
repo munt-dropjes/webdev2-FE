@@ -31,7 +31,22 @@ export async function apiCall(endpoint, method = 'GET', body = null) {
     }
 
     if (!response.ok) {
-        throw new Error(`API Error: ${response.statusText}`);
+        let errorMsg = `Error: ${response.status} ${response.statusText}`;
+
+        try {
+            const errorData = await response.json();
+
+            if (errorData.errorMessage) {
+                errorMsg = errorData.errorMessage;
+            }
+            else if (errorData.message) {
+                errorMsg = errorData.message;
+            }
+        } catch (parseError) {
+            console.warn("Failed to parse error response as JSON:", parseError);
+        }
+
+        throw new Error(errorMsg);
     }
 
     // Return null for 204 No Content, otherwise JSON
