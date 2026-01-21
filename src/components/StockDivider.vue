@@ -8,27 +8,30 @@
                 <thead class="table-dark">
                 <tr>
                     <th>Eigenaar</th>
-                    <th v-for="f in families" :key="f.name" class="text-center">{{ f.name }} (1%)</th>
-                    <th class="text-center bg-success">Totale Waarde</th>
+                    <th v-for="f in families" :key="f.id" class="text-center">
+                        {{ f.name }}<br>
+                        <small class="fw-normal">Prijs: ƒ {{ (f.stock_price).toLocaleString() }}</small>
+                    </th>
+                    <th class="text-center bg-success">Totale Netto Waarde</th>
                 </tr>
                 </thead>
                 <tbody>
-                <tr v-for="owner in families" :key="owner.name">
-                    <td class="fw-bold">{{ owner.name }}</td>
-                    <td v-for="target in families" :key="target.name" class="text-center">
-                        <span v-if="owner.name === target.name" class="badge bg-info text-dark">30% Eigen</span>
-                        <span v-else class="badge bg-light text-dark border">10% Deel</span>
-                        <div class="small text-muted">ƒ {{ calculateValue(owner.name, target).toLocaleString() }}</div>
+                <tr v-for="owner in families" :key="owner.id">
+                    <td class="fw-bold" :style="{ color: owner.color }">{{ owner.name }}</td>
+
+                    <td v-for="target in families" :key="target.id" class="text-center">
+                        <div class="small">
+                            <span v-if="owner.id === target.id" class="badge bg-secondary">30 stuks</span>
+                            <span v-else class="badge border text-dark">10 stuks</span>
+                        </div>
+                        <div class="text-muted small">
+                            ƒ {{ ((owner.id === target.id ? 30 : 10) * target.stock_price).toLocaleString() }}
+                        </div>
                     </td>
-                    <td class="text-center fw-bold text-success">ƒ {{ calculateNetWorth(owner).toLocaleString() }}</td>
-                </tr>
-                <tr class="table-warning">
-                    <td><strong>De Bank</strong></td>
-                    <td v-for="f in families" :key="f.name" class="text-center">
-                        <span class="badge bg-dark">50%</span>
-                        <div class="small text-muted">ƒ {{ ((f.cash / 100) * 50).toLocaleString() }}</div>
+
+                    <td class="text-center fw-bold text-success">
+                        ƒ {{ (owner.net_worth).toLocaleString() }}
                     </td>
-                    <td class="text-center">—</td>
                 </tr>
                 </tbody>
             </table>
@@ -37,17 +40,6 @@
 </template>
 
 <script setup>
-import {inject} from 'vue';
-
+import { inject } from 'vue';
 const families = inject('families');
-
-const calculateValue = (ownerName, target) => {
-    const pricePerShare = target.cash / 100;
-    const percentage = (ownerName === target.name) ? 30 : 10;
-    return pricePerShare * percentage;
-};
-
-const calculateNetWorth = (owner) => {
-    return families.reduce((total, target) => total + calculateValue(owner.name, target), owner.cash);
-};
 </script>

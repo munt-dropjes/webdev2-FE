@@ -71,10 +71,11 @@
                                     </td>
                                     <td>
                                         <div class="row g-2">
-                                            <div v-for="f in families" :key="f.name" class="col-4">
+                                            <div v-for="f in families" :key="f.id" class="col-4">
                                                 <button
-                                                    @click="applyScore(f.name, pos)"
+                                                    @click="applyScore(f.id, pos, f.name)"
                                                     class="btn btn-outline-dark w-100 btn-sm"
+                                                    :style="{ borderColor: f.color, color: 'black' }"
                                                 >
                                                     {{ f.name }}
                                                 </button>
@@ -97,12 +98,11 @@
 </template>
 
 <script setup>
-import {ref, inject} from 'vue';
+import { ref, computed, inject } from 'vue'; // Import inject
 import { apiCall } from '../services/api';
 
-const reloadFamilies = inject('reloadFamilies');
-
 const families = inject('families');
+const reloadFamilies = inject('reloadFamilies');
 const lastAction = ref('Nog geen scores ingevoerd.');
 
 const selectedLevel = ref('klasse3');
@@ -131,29 +131,35 @@ const taskData = {
     }
 };
 
-const applyScore = async (familyName, position) => {
-    // Calculate amount based on position (keep your local logic or move to backend)
+const applyScore = async (familyId, position, familyName) => {
+    if(!selectedTaskName.value) {
+        alert("Selecteer eerst een taak!");
+        return;
+    }
+
     const rewards = taskData[selectedLevel.value];
     let amount = 0;
+
     if (position === 1) amount = rewards.p1;
     else if (position === 2) amount = rewards.p2;
     else amount = rewards.p3;
 
     try {
-        // Send update to Backend
-        // Note: You must add this route to your index.php!
-        await apiCall('/api/families/transaction', 'POST', {
-            family_name: familyName,
+        // 1. Send transaction to Backend
+        // Swagger: POST /api/transactions
+        await apiCall('/api/transactions', 'POST', {
+            company_id: familyId,
             amount: amount,
-            reason: `${selectedTaskName.value} - Rank ${position}`
+            description: `${selectedTaskName.value} - Rank ${position}`
         });
 
-        // Re-fetch data to get the new official totals
+        // 2. Refresh data to get new Cash and Net Worth
         await reloadFamilies();
 
-        lastAction.value = `${familyName} score updated (ƒ ${amount})`;
+        lastAction.value = `${familyName} kreeg ƒ ${amount.toLocaleString()} voor ${selectedTaskName.value}`;
     } catch (e) {
-        alert("Error saving score: " + e.message);
+        console.error(e);
+        lastAction.value = "Fout bij opslaan: " + e.message;
     }
 };
 </script>
