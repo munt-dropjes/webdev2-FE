@@ -53,18 +53,17 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted } from 'vue';
+import { ref, inject, onMounted, computed } from 'vue';
 import { apiCall } from '../services/api';
 import TradeModal from './TradeModal.vue';
 
 const companies = inject('companies');
 const showTradeModal = ref(false);
-const allShares = ref([]); // Stores the list of all shares from API
+const allShares = ref([]);
 
 // Fetch the ownership matrix from backend
 const loadShares = async () => {
     try {
-        // Swagger: GET /api/stocks returns array of Share objects
         const data = await apiCall('/api/stocks');
         if (data) {
             allShares.value = data;
@@ -74,15 +73,21 @@ const loadShares = async () => {
     }
 };
 
-// Helper to find specific ownership count from the flat list
+const shareMap = computed(() => {
+    const map = {};
+    allShares.value.forEach(share => {
+        const key = `${share.owner_id}-${share.company_id}`;
+        map[key] = share.amount;
+    });
+    return map;
+});
+
+// Fast lookup helper
 const getShareAmount = (ownerId, targetCompanyId) => {
-    const record = allShares.value.find(s =>
-        s.owner_id === ownerId && s.company_id === targetCompanyId
-    );
-    return record ? record.amount : 0;
+    const key = `${ownerId}-${targetCompanyId}`;
+    return shareMap.value[key] || 0;
 };
 
-// When trading finishes, close modal and refresh data
 const handleModalClose = () => {
     showTradeModal.value = false;
     loadShares();

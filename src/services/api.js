@@ -1,3 +1,5 @@
+import router from '../router'; // Import the router instance directly
+
 const API_URL = import.meta.env.VITE_API_URL;
 
 export async function apiCall(endpoint, method = 'GET', body = null) {
@@ -26,7 +28,7 @@ export async function apiCall(endpoint, method = 'GET', body = null) {
     // Handle 401 Unauthorized (Token expired)
     if (response.status === 401) {
         localStorage.removeItem('authToken');
-        window.location.href = '/login';
+        await router.push('/login');
         return null;
     }
 
@@ -35,11 +37,9 @@ export async function apiCall(endpoint, method = 'GET', body = null) {
 
         try {
             const errorData = await response.json();
-
             if (errorData.errorMessage) {
                 errorMsg = errorData.errorMessage;
-            }
-            else if (errorData.message) {
+            } else if (errorData.message) {
                 errorMsg = errorData.message;
             }
         } catch (parseError) {

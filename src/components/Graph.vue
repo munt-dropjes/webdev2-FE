@@ -21,24 +21,19 @@ const graphTrigger = inject('graphTrigger');
 const chartCanvas = ref(null);
 const chartInstance = shallowRef(null);
 
-const renderChart = () => {
+const createChart = () => {
     if (!chartCanvas.value) return;
+    const ctx = chartCanvas.value.getContext('2d');
 
-    // 1. Log what we are trying to draw (Debugging)
-    console.log("Graph: Rendering with", history.labels.length, "points and", history.datasets.length, "datasets");
-
-    // 2. Destroy old instance
     if (chartInstance.value) {
         chartInstance.value.destroy();
     }
 
-    // 3. Create new instance
-    const ctx = chartCanvas.value.getContext('2d');
     chartInstance.value = new Chart(ctx, {
         type: 'line',
         data: {
             labels: [...history.labels],
-            datasets: history.datasets.map(ds => ({ ...ds, data: [...ds.data] })) // Deep copy data
+            datasets: history.datasets.map(ds => ({ ...ds, data: [...ds.data] }))
         },
         options: {
             responsive: true,
@@ -56,14 +51,39 @@ const renderChart = () => {
     });
 };
 
-// Watch specifically for the signal from App.vue
 watch(graphTrigger, () => {
-    renderChart();
+    // If no chart, or if the number of datasets changed (e.g. init vs loaded), recreate.
+    if (!chartInstance.value || chartInstance.value.data.datasets.length !== history.datasets.length) {
+        createChart();
+        return;
+    }
+
+    const chart = chartInstance.value;
+
+    // OPTIMIZED UPDATE:
+    // Update data arrays in-place instead of destroying the canvas
+    chart.data.labels = [...history.labels];
+
+    chart.data.datasets.forEach((dataset, i) => {
+        if (history.datasets[i]) {
+            dataset.data = [...history.datasets[i].data];
+        }
+    });
+
+    // 'none' mode prevents animation = instant update
+    chart.update('none');
 });
 
 onMounted(() => {
     if (history.labels.length > 0) {
-        renderChart();
+        createChart();
+    }
+});
+
+onUnmounted(() => {
+    if (chartInstance.value) {
+        chartInstance.value.destroy();
+        chartInstance.value = null;
     }
 });
 </script>
