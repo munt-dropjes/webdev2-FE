@@ -45,111 +45,166 @@
 </template>
 
 <script setup>
-import { reactive, provide, onMounted, onUnmounted, ref, watch } from 'vue';
+import { reactive, provide, onMounted, onUnmounted, ref } from 'vue';
 import { apiCall } from './services/api';
 
 const companies = reactive([]);
 
+// The Single Source of Truth for the Graph
 const history = reactive({
     labels: [],
     datasets: []
 });
 
 const graphTrigger = ref(0);
+const lastRecordedTime = ref(null);
 
-// Load data from Backend API
+// Helper: Ensure the graph lines (datasets) exist
+const ensureGraphStructure = () => {
+    if (history.datasets.length === 0 && companies.length > 0) {
+        console.log("Initializing Graph Structure with companies:", companies.length);
+        history.datasets = companies.map(c => ({
+            id: c.id,
+            label: c.name,
+            data: [], // Starts empty, will be filled by loadHistory
+            borderColor: c.color,
+            backgroundColor: c.color,
+            tension: 0.3,
+            borderWidth: 3,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            fill: false,
+            spanGaps: true
+        }));
+        // Explicitly notify graph to re-render structure
+        graphTrigger.value++;
+    }
+};
+
 const loadCompanies = async () => {
     const token = localStorage.getItem('authToken');
     if (!token) return;
 
     try {
         const data = await apiCall('/api/companies');
-
         if (data) {
             companies.splice(0, companies.length, ...data);
-
-            // Initialize graph datasets only once
-            if (history.datasets.length === 0) {
-                initGraphDatasets();
-            }
+            // Immediately try to setup graph structure when companies arrive
+            ensureGraphStructure();
         }
     } catch (e) {
         console.error("Failed to load companies", e);
     }
 };
 
-const initGraphDatasets = () => {
-    history.datasets = companies.map(c => ({
-        label: c.name,
-        data: [],
-        borderColor: c.color,
-        backgroundColor: c.color,
-        tension: 0.3,
-        borderWidth: 3,
-        pointRadius: 3,
-        pointHoverRadius: 6,
-        fill: false,
-        spanGaps: true
-    }));
-};
+const loadHistory = async () => {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
 
-const recordSnapshot = () => {
-    if (companies.length === 0) return;
-
-    const now = new Date();
-    const timeLabel = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-
-    history.labels.push(timeLabel);
-
-    companies.forEach((c, index) => {
-        if (!history.datasets[index]) return;
-        // Use net_worth directly from API
-        history.datasets[index].data.push(c.net_worth);
-    });
-
-    if (history.labels.length > 60) {
-        history.labels.shift();
-        history.datasets.forEach(d => d.data.shift());
+    // Safety: Companies must be loaded first
+    if (companies.length === 0) {
+        return;
     }
 
-    graphTrigger.value++;
-};
+    ensureGraphStructure();
 
-watch(companies, () => {
-    if (history.labels.length > 0 && history.datasets.length > 0) {
-        companies.forEach((c, index) => {
-            if (history.datasets[index]) {
-                const lastIdx = history.datasets[index].data.length - 1;
-                if (lastIdx >= 0) {
-                    history.datasets[index].data[lastIdx] = c.net_worth;
+    let sinceParam = '';
+
+    if (lastRecordedTime.value) {
+        // APPEND MODE: Use the last known time from the DB (already UTC string)
+        // Add 1 second to avoid duplicates
+        // We parse it, add 1000ms, and convert back to UTC string
+        const lastDate = new Date(lastRecordedTime.value.replace(' ', 'T') + 'Z');
+        const nextTick = new Date(lastDate.getTime() + 1000);
+        sinceParam = nextTick.toISOString().slice(0, 19).replace('T', ' ');
+    } else {
+        // INIT MODE: Last 65 minutes
+        const d = new Date(Date.now() - 65 * 60000);
+        // FIX: Use toISOString() to get clean UTC ("2026-01-22 08:38:53")
+        sinceParam = d.toISOString().slice(0, 19).replace('T', ' ');
+    }
+
+    console.log("Requesting History Since (UTC):", sinceParam);
+
+    try {
+        const rawData = await apiCall(`/api/history/${encodeURIComponent(sinceParam)}`);
+
+        if (rawData && Array.isArray(rawData) && rawData.length > 0) {
+            const groupedByTime = {};
+            let maxTimeStr = lastRecordedTime.value;
+
+            rawData.forEach(record => {
+                if (!maxTimeStr || record.recorded_at > maxTimeStr) {
+                    maxTimeStr = record.recorded_at;
                 }
-            }
-        });
-        graphTrigger.value++;
+
+                const timeLabel = record.recorded_at.substring(11, 16);
+
+                if (!groupedByTime[timeLabel]) {
+                    groupedByTime[timeLabel] = {};
+                }
+                groupedByTime[timeLabel][record.company_id] = record.net_worth;
+            });
+
+            lastRecordedTime.value = maxTimeStr;
+
+            const newLabels = Object.keys(groupedByTime).sort();
+
+            newLabels.forEach(time => {
+                // Prevent duplicates
+                if (history.labels.length === 0 || history.labels[history.labels.length - 1] !== time) {
+                    history.labels.push(time);
+
+                    history.datasets.forEach(ds => {
+                        const val = groupedByTime[time][ds.id] ?? null;
+                        ds.data.push(val);
+                    });
+                }
+            });
+
+            graphTrigger.value++;
+        }
+    } catch (e) {
+        console.error("Failed to load graph history", e);
     }
-}, { deep: true });
+};
+
+const performHeartbeat = async () => {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+
+    try {
+        // 1. Snapshot
+        await apiCall('/api/history/save', 'POST');
+        // 2. Refresh Cash
+        await loadCompanies();
+        // 3. Append History
+        await loadHistory();
+    } catch (e) {
+        console.error("Heartbeat failed", e);
+    }
+};
 
 let timer = null;
 
 onMounted(async () => {
+    // STRICT ORDERING:
+    // 1. Load Companies (So we have IDs and Colors)
     await loadCompanies();
-    recordSnapshot();
-    timer = setInterval(recordSnapshot, 60000);
+
+    // 2. Load History (Now that we have companies, we can map the data)
+    await loadHistory();
+
+    // 3. Start Timer
+    timer = setInterval(performHeartbeat, 60000);
 });
 
 onUnmounted(() => {
     if (timer) clearInterval(timer);
 });
 
-// Provide updated keys
 provide('companies', companies);
 provide('reloadCompanies', loadCompanies);
 provide('history', history);
 provide('graphTrigger', graphTrigger);
 </script>
-
-<style>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-.navbar-nav .nav-link.active { color: #fff !important; font-weight: bold; border-bottom: 2px solid #0d6efd; }
-</style>

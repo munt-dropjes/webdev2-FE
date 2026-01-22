@@ -1,7 +1,7 @@
 <template>
     <div class="card shadow-sm border-0">
         <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Marktontwikkeling</h5>
+            <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Live Koersverloop</h5>
             <span class="badge rounded-pill bg-danger animate-pulse">LIVE</span>
         </div>
         <div class="card-body">
@@ -13,7 +13,7 @@
 </template>
 
 <script setup>
-import {onMounted, onUnmounted, inject, ref, watch, shallowRef} from 'vue';
+import { onMounted, onUnmounted, inject, ref, watch, shallowRef } from 'vue';
 import Chart from 'chart.js/auto';
 
 const history = inject('history');
@@ -21,88 +21,58 @@ const graphTrigger = inject('graphTrigger');
 const chartCanvas = ref(null);
 const chartInstance = shallowRef(null);
 
-const initChart = () => {
+const renderChart = () => {
     if (!chartCanvas.value) return;
-    const ctx = chartCanvas.value.getContext('2d');
 
+    // 1. Log what we are trying to draw (Debugging)
+    console.log("Graph: Rendering with", history.labels.length, "points and", history.datasets.length, "datasets");
+
+    // 2. Destroy old instance
+    if (chartInstance.value) {
+        chartInstance.value.destroy();
+    }
+
+    // 3. Create new instance
+    const ctx = chartCanvas.value.getContext('2d');
     chartInstance.value = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: history.labels,
-            datasets: history.datasets
+            labels: [...history.labels],
+            datasets: history.datasets.map(ds => ({ ...ds, data: [...ds.data] })) // Deep copy data
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
             elements: {
-                line: {
-                    borderWidth: 3,
-                    showLine: true,
-                    tension: 0.3
-                },
-                point: {
-                    radius: 3,
-                    hitRadius: 10
-                }
+                line: { borderWidth: 3, showLine: true, tension: 0.3 },
+                point: { radius: 3, hitRadius: 10 }
             },
             scales: {
-                y: {
-                    ticks: {
-                        // FIX: Use standard function syntax to help IDE recognize 'value'
-                        callback: function (value) {
-                            return 'ƒ ' + value.toLocaleString();
-                        }
-                    }
-                }
+                y: { ticks: { callback: (val) => 'ƒ ' + val.toLocaleString() } }
             },
-            plugins: {
-                legend: {position: 'bottom'}
-            }
+            plugins: { legend: { position: 'bottom' } }
         }
     });
 };
 
-onMounted(() => {
-    initChart();
-});
-
+// Watch specifically for the signal from App.vue
 watch(graphTrigger, () => {
-    if (chartInstance.value) {
-        chartInstance.value.data.labels = [...history.labels];
-
-        chartInstance.value.data.datasets.forEach((dataset, index) => {
-            dataset.data = [...history.datasets[index].data];
-        });
-
-        requestAnimationFrame(() => {
-            chartInstance.value.update('none');
-        });
-    }
+    renderChart();
 });
 
-onUnmounted(() => {
-    if (chartInstance.value) {
-        chartInstance.value.destroy();
-        chartInstance.value = null;
+onMounted(() => {
+    if (history.labels.length > 0) {
+        renderChart();
     }
 });
 </script>
 
 <style scoped>
-.animate-pulse {
-    animation: pulse 2s infinite;
-}
-
+.animate-pulse { animation: pulse 2s infinite; }
 @keyframes pulse {
-    0% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.4;
-    }
-    100% {
-        opacity: 1;
-    }
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
 }
 </style>
