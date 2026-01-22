@@ -50,6 +50,31 @@
 
         <TradeModal :isOpen="showTradeModal" @close="handleModalClose" />
     </div>
+
+    <div class="card shadow-sm mb-4 border-secondary">
+        <div class="card-header bg-secondary text-white d-flex align-items-center">
+            <i class="bi bi-bank2 me-2"></i>
+            <span class="fw-bold">Bank Voorraad (Te Koop)</span>
+        </div>
+        <div class="card-body py-3">
+            <div class="row text-center">
+                <div v-for="c in companies" :key="c.id" class="col">
+                    <div class="fw-bold mb-1" :style="{ color: c.color }">{{ c.name }}</div>
+                    <div v-if="getBankAmount(c.id) > 0">
+                            <span class="badge bg-dark rounded-pill border border-light">
+                                {{ getBankAmount(c.id) }} stuks
+                            </span>
+                        <div class="small text-muted mt-1">
+                            ƒ {{ (getBankAmount(c.id) * c.stock_price).toLocaleString() }}
+                        </div>
+                    </div>
+                    <div v-else>
+                        <span class="badge bg-danger rounded-pill">Uitverkocht</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </template>
 
 <script setup>
@@ -60,13 +85,18 @@ import TradeModal from './TradeModal.vue';
 const companies = inject('companies');
 const showTradeModal = ref(false);
 const allShares = ref([]);
+const bankShares = ref([]); // NEW: Store bank portfolio
 
-// Fetch the ownership matrix from backend
 const loadShares = async () => {
     try {
-        const data = await apiCall('/api/stocks');
-        if (data) {
-            allShares.value = data;
+        const stocksData = await apiCall('/api/stocks');
+        if (stocksData) {
+            allShares.value = stocksData;
+        }
+
+        const bankData = await apiCall('/api/stocks/bank');
+        if (bankData) {
+            bankShares.value = bankData;
         }
     } catch (e) {
         console.error("Failed to load stocks", e);
@@ -82,10 +112,14 @@ const shareMap = computed(() => {
     return map;
 });
 
-// Fast lookup helper
 const getShareAmount = (ownerId, targetCompanyId) => {
     const key = `${ownerId}-${targetCompanyId}`;
     return shareMap.value[key] || 0;
+};
+
+const getBankAmount = (companyId) => {
+    const record = bankShares.value.find(s => s.company_id === companyId);
+    return record ? record.amount : 0;
 };
 
 const handleModalClose = () => {
