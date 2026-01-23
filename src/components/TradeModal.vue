@@ -1,50 +1,52 @@
 <template>
-    <div v-if="isOpen" class="modal-backdrop show"></div>
-    <div v-if="isOpen" class="modal d-block" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-dark text-white">
-                    <h5 class="modal-title">Aandelen Kopen</h5>
-                    <button type="button" class="btn-close btn-close-white" @click="$emit('close')"></button>
-                </div>
-                <div class="modal-body">
-                    <form @submit.prevent="executeTrade">
-                        <div class="mb-3">
-                            <label class="form-label">Koper (Wie betaalt?)</label>
-                            <select v-model="form.buyer_id" class="form-select" required>
-                                <option disabled value="">Selecteer Koper...</option>
-                                <option v-for="c in companies" :key="c.id" :value="c.id">
-                                    {{ c.name }} (Kas: ƒ {{ c.cash.toLocaleString() }})
-                                </option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Welk Aandeel?</label>
-                            <select v-model="form.stock_company_id" class="form-select" required>
-                                <option disabled value="">Selecteer Aandeel...</option>
-                                <option v-for="c in companies" :key="c.id" :value="c.id">
-                                    {{ c.name }} (Huidige koers: ƒ {{ c.stock_price.toLocaleString() }})
-                                </option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Aantal aandelen</label>
-                            <input type="number" v-model="form.amount" class="form-control" min="1" required>
-                            <div class="form-text" v-if="estimatedCost > 0">
-                                Totaal kosten: <strong>ƒ {{ estimatedCost.toLocaleString() }}</strong>
+    <div>
+        <div v-if="isOpen" class="modal-backdrop show"></div>
+        <div v-if="isOpen" class="modal d-block" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-dark text-white">
+                        <h5 class="modal-title">Aandelen Kopen</h5>
+                        <button type="button" class="btn-close btn-close-white" @click="$emit('close')"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="executeTrade">
+                            <div class="mb-3">
+                                <label class="form-label">Koper (Wie betaalt?)</label>
+                                <select v-model="form.buyer_id" class="form-select" required>
+                                    <option disabled value="">Selecteer Koper...</option>
+                                    <option v-for="c in companies" :key="c.id" :value="c.id">
+                                        {{ c.name }} (Kas: ƒ {{ c.cash.toLocaleString() }})
+                                    </option>
+                                </select>
                             </div>
-                        </div>
 
-                        <div v-if="error" class="alert alert-danger">{{ error }}</div>
-                        <div v-if="success" class="alert alert-success">{{ success }}</div>
+                            <div class="mb-3">
+                                <label class="form-label">Welk Aandeel?</label>
+                                <select v-model="form.stock_company_id" class="form-select" required>
+                                    <option disabled value="">Selecteer Aandeel...</option>
+                                    <option v-for="c in companies" :key="c.id" :value="c.id">
+                                        {{ c.name }} (Huidige koers: ƒ {{ c.stock_price.toLocaleString() }})
+                                    </option>
+                                </select>
+                            </div>
 
-                        <button type="submit" class="btn btn-success w-100" :disabled="loading">
-                            <span v-if="loading" class="spinner-border spinner-border-sm"></span>
-                            {{ loading ? 'Bezig...' : 'Koop Aandelen' }}
-                        </button>
-                    </form>
+                            <div class="mb-3">
+                                <label class="form-label">Aantal aandelen</label>
+                                <input type="number" v-model="form.amount" class="form-control" min="1" required>
+                                <div class="form-text" v-if="estimatedCost > 0">
+                                    Totaal kosten: <strong>ƒ {{ estimatedCost.toLocaleString() }}</strong>
+                                </div>
+                            </div>
+
+                            <div v-if="error" class="alert alert-danger">{{ error }}</div>
+                            <div v-if="success" class="alert alert-success">{{ success }}</div>
+
+                            <button type="submit" class="btn btn-success w-100" :disabled="loading">
+                                <span v-if="loading" class="spinner-border spinner-border-sm"></span>
+                                {{ loading ? 'Bezig...' : 'Koop Aandelen' }}
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -70,7 +72,6 @@ const form = reactive({
     amount: 1
 });
 
-// Calculate live cost preview
 const estimatedCost = computed(() => {
     if (!form.stock_company_id || !form.amount) return 0;
     const target = companies.find(c => c.id === form.stock_company_id);
@@ -80,28 +81,24 @@ const estimatedCost = computed(() => {
 const executeTrade = async () => {
     loading.value = true;
     error.value = '';
-    success.value = '';
 
     try {
-        // API Call to /api/stocks/trade
         await apiCall('/api/stocks/trade', 'POST', {
             buyer_id: form.buyer_id,
             stock_company_id: form.stock_company_id,
             amount: form.amount,
-            seller_id: null // Assuming buying from Bank/Market for now
+            seller_id: null
         });
 
         success.value = 'Transactie geslaagd!';
-        await reloadCompanies(); // Refresh all cash/stock values
+        if (reloadCompanies) await reloadCompanies();
 
-        // Reset form after short delay
         setTimeout(() => {
             success.value = '';
             emit('close');
         }, 1500);
 
     } catch (e) {
-        // Show error from API (e.g. Insufficient funds)
         error.value = e.message || 'Transactie mislukt';
     } finally {
         loading.value = false;

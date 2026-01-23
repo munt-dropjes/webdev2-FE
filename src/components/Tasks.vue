@@ -2,87 +2,119 @@
     <div class="opdrachten-container">
         <div class="row">
             <div class="col-md-4">
-                <div class="card shadow-sm mb-4">
+
+                <div class="card shadow-sm mb-3">
                     <div class="card-header bg-dark text-white">
-                        <h5 class="mb-0">Opdracht Selectie</h5>
+                        <h5 class="mb-0">1. Kies Niveau</h5>
                     </div>
                     <div class="card-body">
-                        <label class="form-label fw-bold">1. Kies Niveau</label>
-                        <select v-model="selectedLevel" class="form-select mb-3">
-                            <option v-for="(data, key) in taskData" :key="key" :value="key">
-                                {{ data.label }}
-                            </option>
-                        </select>
-
-                        <label class="form-label fw-bold">2. Kies Specifieke Taak</label>
-                        <select v-model="selectedTaskName" class="form-select">
-                            <option v-for="task in taskData[selectedLevel].items" :key="task" :value="task">
-                                {{ task }}
+                        <select v-model="selectedCategory" class="form-select" :disabled="loading">
+                            <option value="" disabled>Selecteer Categorie...</option>
+                            <option v-for="cat in categories" :key="cat" :value="cat">
+                                {{ cat }}
                             </option>
                         </select>
                     </div>
                 </div>
 
-                <div class="card border-info shadow-sm">
+                <div class="card shadow-sm mb-3" v-if="selectedCategory">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">2. Kies Opdracht</h5>
+                    </div>
                     <div class="card-body">
-                        <h6 class="text-info text-uppercase small fw-bold">Beloningen voor {{ taskData[selectedLevel].label }}</h6>
-                        <ul class="list-unstyled mb-0">
-                            <li><i class="bi bi-trophy-fill text-warning"></i> 1e: +ƒ {{ taskData[selectedLevel].p1.toLocaleString() }}</li>
-                            <li><i class="bi bi-award text-muted"></i> 2e: +ƒ {{ taskData[selectedLevel].p2.toLocaleString() }}</li>
-                            <li><i class="bi bi-x-circle text-danger"></i> 3e/Fout: ƒ {{ taskData[selectedLevel].p3.toLocaleString() }}</li>
+                        <select v-model="selectedTaskId" class="form-select">
+                            <option value="" disabled>Selecteer Opdracht...</option>
+                            <option v-for="task in filteredTasks" :key="task.id" :value="task.id">
+                                {{ task.name }}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="card border-info shadow-sm" v-if="currentTask">
+                    <div class="card-body">
+                        <h6 class="text-info text-uppercase small fw-bold">Beloningen: {{ currentTask.name }}</h6>
+                        <ul class="list-unstyled mb-0 small">
+                            <li><i class="bi bi-trophy-fill text-warning"></i> 1e: ƒ {{ currentTask.reward_p1.toLocaleString() }}</li>
+                            <li><i class="bi bi-award text-secondary"></i> 2e: ƒ {{ currentTask.reward_p2.toLocaleString() }}</li>
+                            <li><i class="bi bi-award-fill text-danger"></i> 3e: ƒ {{ currentTask.reward_p3.toLocaleString() }}</li>
+                            <li v-if="currentTask.reward_p4"><i class="bi bi-person text-muted"></i> 4e: ƒ {{ currentTask.reward_p4.toLocaleString() }}</li>
+                            <li v-if="currentTask.reward_p5"><i class="bi bi-person text-muted"></i> 5e: ƒ {{ currentTask.reward_p5.toLocaleString() }}</li>
                         </ul>
                     </div>
                 </div>
             </div>
 
             <div class="col-md-8">
-                <div class="card shadow-sm border-primary">
-                    <div class="card-body text-center py-5" v-if="!selectedTaskName">
-                        <p class="text-muted">Selecteer een opdracht aan de linkerkant om scores in te voeren.</p>
+                <div class="card shadow-sm border-primary h-100">
+
+                    <div class="card-body text-center py-5 d-flex flex-column justify-content-center" v-if="!currentTask">
+                        <i class="bi bi-list-check display-1 text-muted mb-3"></i>
+                        <h4 class="text-muted">Selecteer een opdracht</h4>
+                        <p class="text-muted">Kies links een categorie en opdracht om resultaten in te voeren.</p>
                     </div>
 
                     <div class="card-body" v-else>
                         <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2 class="h4 mb-0 text-primary">{{ selectedTaskName }}</h2>
-                            <span class="badge bg-secondary">{{ taskData[selectedLevel].label }}</span>
+                            <h3 class="h4 mb-0 text-primary">{{ currentTask.name }}</h3>
+                            <span class="badge bg-secondary">{{ currentTask.category }}</span>
                         </div>
 
-                        <div class="table-responsive">
-                            <table class="table table-bordered align-middle">
-                                <thead class="table-light text-center">
+                        <h6 class="fw-bold border-bottom pb-2 mb-3">Reeds Voltooid</h6>
+                        <div class="table-responsive mb-4">
+                            <table class="table table-sm table-striped align-middle">
+                                <thead class="table-light">
                                 <tr>
-                                    <th style="width: 20%">Positie</th>
-                                    <th>Toewijzen aan Bedrijf</th>
+                                    <th style="width: 50px">Rank</th>
+                                    <th>Bedrijf</th>
+                                    <th>Tijdstip</th>
                                 </tr>
                                 </thead>
                                 <tbody>
-                                <tr v-for="pos in [1, 2, 3]" :key="pos">
-                                    <td class="text-center fw-bold">
-                                        <span v-if="pos === 1" class="text-warning">1e Plaats</span>
-                                        <span v-if="pos === 2" class="text-secondary">2e Plaats</span>
-                                        <span v-if="pos === 3" class="text-danger">3e / Fout</span>
-                                    </td>
+                                <tr v-for="entry in currentTask.finished_by" :key="entry.company_id">
                                     <td>
-                                        <div class="row g-2">
-                                            <div v-for="c in companies" :key="c.id" class="col-4">
-                                                <button
-                                                    @click="applyScore(c.id, pos, c.name)"
-                                                    class="btn btn-outline-dark w-100 btn-sm"
-                                                    :style="{ borderColor: c.color, color: 'black' }"
-                                                >
-                                                    {{ c.name }}
-                                                </button>
-                                            </div>
-                                        </div>
+                                        <span v-if="entry.rank === 1" class="badge bg-warning text-dark">1e</span>
+                                        <span v-else-if="entry.rank === 2" class="badge bg-secondary">2e</span>
+                                        <span v-else-if="entry.rank === 3" class="badge bg-danger">3e</span>
+                                        <span v-else class="badge bg-light text-dark border">{{ entry.rank }}e</span>
+                                    </td>
+                                    <td class="fw-bold">{{ entry.company_name }}</td>
+                                    <td class="small text-muted">{{ new Date(entry.completed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</td>
+                                </tr>
+                                <tr v-if="!currentTask.finished_by || currentTask.finished_by.length === 0">
+                                    <td colspan="3" class="text-center text-muted fst-italic py-3">
+                                        Nog niemand heeft deze opdracht voltooid.
                                     </td>
                                 </tr>
                                 </tbody>
                             </table>
                         </div>
 
-                        <div class="alert alert-light border small mt-3">
-                            <strong>Log:</strong> {{ lastAction }}
+                        <h6 class="fw-bold border-bottom pb-2 mb-3">Nu Voltooien (Klik op volgorde van binnenkomst)</h6>
+                        <div class="row g-2">
+                            <div v-for="c in remainingCompanies" :key="c.id" class="col-md-4 col-6">
+                                <button
+                                    @click="submitCompletion(c.id)"
+                                    class="btn btn-outline-dark w-100 py-3 position-relative"
+                                    :style="{ borderColor: c.color, borderLeftWidth: '5px' }"
+                                    :disabled="processing"
+                                >
+                                    <span class="fw-bold">{{ c.name }}</span>
+                                    <div class="small text-muted mt-1">
+                                        Volgende Rank: <strong>{{ nextRank }}e</strong>
+                                    </div>
+                                </button>
+                            </div>
                         </div>
+
+                        <div v-if="remainingCompanies.length === 0" class="alert alert-success mt-3 text-center">
+                            <i class="bi bi-check-circle-fill me-2"></i> Iedereen heeft deze opdracht voltooid!
+                        </div>
+
+                        <div v-if="feedback" :class="['alert mt-3', feedbackType === 'error' ? 'alert-danger' : 'alert-success']">
+                            {{ feedback }}
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -91,66 +123,108 @@
 </template>
 
 <script setup>
-import { ref, inject } from 'vue';
+import { ref, inject, onMounted, computed } from 'vue';
 import { apiCall } from '../services/api';
 
-const companies = inject('companies');
-const reloadCompanies = inject('reloadCompanies');
-const lastAction = ref('Nog geen scores ingevoerd.');
+const companies = inject('companies'); // Provided by App.vue
+const reloadCompanies = inject('reloadCompanies'); // To update cash after reward
 
-const selectedLevel = ref('klasse3');
-const selectedTaskName = ref('');
+const tasks = ref([]);
+const loading = ref(false);
+const processing = ref(false); // For button disabling during API call
+const selectedCategory = ref('');
+const selectedTaskId = ref('');
+const feedback = ref('');
+const feedbackType = ref('');
 
-const taskData = {
-    klasse3: {
-        label: '3e Klasse', p1: 25000, p2: 12500, p3: -12500,
-        items: ['Kruissjorring', '8-vormige sjorring', 'Blokkenstel inscheren', 'Paalsteek + Schootsteek', 'Bundelsteek', 'Hang de vlaggen in de mast', 'EHBO']
-    },
-    klasse2: {
-        label: '2e Klasse', p1: 50000, p2: 25000, p3: -25000,
-        items: ['Dubbele werpanker', 'Diagonaalssjorring', 'Vorkssjorring', 'Steigerssjorring', 'Teruggestoken 8-knoop', 'Tonsjorring', 'Coordinaten kruispeiling', 'EHBO']
-    },
-    klasse1: {
-        label: '1e Klasse', p1: 100000, p2: 50000, p3: -50000,
-        items: ['Oogsplits', 'Eindsplits', 'Tussensplits', 'Turkse knoop', '3 op 1 bouwen', 'EHBO']
-    },
-    algemeen: {
-        label: 'Algemeen/Overige', p1: 50000, p2: 25000, p3: -25000,
-        items: ['Kaartenhuis 6 verdiepingen', 'Kruiwagen hout halen', 'Koffie aan de staf', '30 Push-ups', '5 Pull-ups', 'Gat graven (Welp-formaat)', 'Roeien over de oprit', 'Plunjezak slepen', 'Verkenner tillen', 'Blauwe boekje uitleggen', 'Handtekening Welpenleiding', 'Klasse eis/insigne behalen', 'Kidnap PL', 'Vissersknoop', 'Lassoknoop', 'Bindersknoop', 'Katteklauw', 'Beksteek', 'Eindsplits achter de rug', 'Oogsplits achter de rug', 'Schildknoop', 'Chirurgenknoop', 'Franse paalsteek', 'Hijs zeilen in toren', 'Dubbele hielingsteek', 'Treksteek', 'Regel zomerkamp trofee 1993', 'Regel zomerkamp trofee 1997', 'Regel orkonde winst LSW', 'Regel Rowanvlag', 'Regel rode veters', 'Regel groepsdas', 'Foto pat vlag bij bunker', 'Maak ontstekingsmechanisme', 'Regel plintentrappetje', 'Maak luchtballon', 'Ideale patrouille indeling', 'Brug zonder touw', 'Plattegrond terrein']
-    },
-    vragen: {
-        label: 'Vragen', p1: 5000, p2: 2500, p3: -2500,
-        items: ['Naam Groep 3 (1911)', 'Hopman Grijze Driehoek', 'Oprichting Camerons', 'Locatie 1933-1971', 'Jamboree 1937', 'Naamgeving Camerons', 'Daskleur vroeger', 'Oudste patrouille naam', 'Naam Kaderpatrouille', 'Betekenis D.N.C.', 'Oude patrouille namen', 'Naam Stam 1945', 'Naam Stam 1950', 'Zomerkamp 1954', 'Bouw Spechtenoog', 'Andere naam Spechtenoog', 'Krentenbrood traditie', 'Pavaqua 1957', 'Eerste paraboloide NL', 'De Olifant (1960)', 'Namen clubbladen', 'Sperwers winst LSW', 'Sperwers afkomst', 'Zomerkamp 1964', 'Eerste gezamenlijk kamp', 'Datum fusie', 'Opening ACII', 'Namen 2 hordes', 'Overgebleven horde', 'Eerste Schotland kamp', 'Reden Schotland jaar', 'Oprichting Rowans', 'Betekenis T.N.O.', 'Cathy Kniphorst Akela', 'Hordehol Wantolla', 'Zomerkamp Rowans 90/00', 'Brand TNO datum', 'Zomerkamp welpen 1993', 'Hayo de Jonge rol', 'Gouden 5 / Gouden 10', 'Groepsvlag letter E', 'Rowans Wiltz 1999', 'Bonnet traditie 1997', 'West Highland Way 2001', 'Zomerkamp 2005', 'Ierland 2012', 'Zomerkamp 2013', 'PL Schotland 2014', 'Winnaars Schotland 10', 'Thema 2015', 'Kamp op palen jaar', 'Winnaar paalkamp', 'Leeftijd staf totaal', 'Koorden behaald', 'Lijst Hopmannen', 'Lijst Akela\'s', 'Echte naam Akela']
+// 1. Fetch all tasks from API
+const loadTasks = async () => {
+    loading.value = true;
+    try {
+        const data = await apiCall('/api/tasks');
+        if (data) {
+            tasks.value = data;
+        }
+    } catch (e) {
+        console.error("Failed to load tasks", e);
+    } finally {
+        loading.value = false;
     }
 };
 
-const applyScore = async (companyId, position, companyName) => {
-    if(!selectedTaskName.value) {
-        alert("Selecteer eerst een taak!");
-        return;
-    }
+// 2. Compute Unique Categories
+const categories = computed(() => {
+    const unique = new Set(tasks.value.map(t => t.category));
+    return Array.from(unique).sort(); // Alphabetical sort, or custom logic if needed
+});
 
-    const rewards = taskData[selectedLevel.value];
-    let amount = 0;
+// 3. Filter Tasks by Category
+const filteredTasks = computed(() => {
+    if (!selectedCategory.value) return [];
+    return tasks.value.filter(t => t.category === selectedCategory.value);
+});
 
-    if (position === 1) amount = rewards.p1;
-    else if (position === 2) amount = rewards.p2;
-    else amount = rewards.p3;
+// 4. Get Current Task Object
+const currentTask = computed(() => {
+    if (!selectedTaskId.value) return null;
+    return tasks.value.find(t => t.id === selectedTaskId.value);
+});
+
+// 5. Calculate who is left
+const remainingCompanies = computed(() => {
+    if (!currentTask.value) return [];
+    const finishedIds = (currentTask.value.finished_by || []).map(f => f.company_id);
+    // Return companies that are NOT in the finished list
+    return companies.filter(c => !finishedIds.includes(c.id));
+});
+
+// 6. Predict Next Rank
+const nextRank = computed(() => {
+    if (!currentTask.value) return 1;
+    return (currentTask.value.finished_by?.length || 0) + 1;
+});
+
+// 7. Submit Action
+const submitCompletion = async (companyId) => {
+    processing.value = true;
+    feedback.value = '';
 
     try {
-        // API Call to /api/transactions
-        await apiCall('/api/transactions', 'POST', {
+        // API: POST /api/tasks/complete
+        // The backend calculates the rank and reward automatically
+        const result = await apiCall('/api/tasks/complete', 'POST', {
             company_id: companyId,
-            amount: amount,
-            description: `${selectedTaskName.value} - Rank ${position}`
+            task_id: selectedTaskId.value
         });
 
-        await reloadCompanies(); // Get new data
+        feedbackType.value = 'success';
+        feedback.value = `Succes! ${result.company_name} heeft "${result.task_name}" voltooid en ƒ ${result.reward.toLocaleString()} verdiend.`;
 
-        lastAction.value = `${companyName} kreeg ƒ ${amount.toLocaleString()} voor ${selectedTaskName.value}`;
+        // Refresh Data:
+        // 1. Reload Tasks (to update the 'finished_by' list and ranks)
+        await loadTasks();
+        // 2. Reload Companies (to update cash balance in the header)
+        await reloadCompanies();
+
     } catch (e) {
-        console.error(e);
-        lastAction.value = "Fout bij opslaan: " + e.message;
+        feedbackType.value = 'error';
+        feedback.value = e.message || "Er ging iets mis.";
+    } finally {
+        processing.value = false;
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+            if(feedbackType.value === 'success') feedback.value = '';
+        }, 4000);
     }
 };
+
+onMounted(() => {
+    loadTasks();
+});
 </script>
+
+<style scoped>
+.opdrachten-container {
+    min-height: 80vh;
+}
+</style>
