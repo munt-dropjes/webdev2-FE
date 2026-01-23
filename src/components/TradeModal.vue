@@ -101,8 +101,8 @@ const isInvalid = computed(() => {
     // Basic checks
     if (!form.buyer_id || !form.stock_company_id || form.amount < 1) return true;
     // Logical check: Buyer cannot be Seller
-    if (form.buyer_id === form.seller_id) return true;
-    return false;
+    return form.buyer_id === form.seller_id;
+
 });
 
 // Computed: Calculate Cost
