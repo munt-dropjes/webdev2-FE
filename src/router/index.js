@@ -1,16 +1,18 @@
-import {createRouter, createWebHistory} from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router';
 import Rules from '../components/Rules.vue';
 import Tasks from '../components/Tasks.vue';
 import Stocks from '../components/StockDivider.vue';
 import Graph from '../components/Graph.vue';
 import Login from '../components/Login.vue';
+import Transactions from '../components/Transactions.vue';
 
 const routes = [
-    {path: '/', component: Rules},
-    {path: '/opdrachten', component: Tasks},
-    {path: '/aandelen', component: Stocks},
-    {path: '/grafiek', component: Graph},
-    { path: '/login', component: Login }
+    { path: '/', component: Rules },
+    { path: '/opdrachten', component: Tasks },
+    { path: '/aandelen', component: Stocks },
+    { path: '/grafiek', component: Graph },
+    { path: '/login', component: Login },
+    { path: '/transacties', component: Transactions }
 ];
 
 const router = createRouter({

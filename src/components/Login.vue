@@ -23,9 +23,10 @@
 </template>
 
 <script setup>
-import { ref, inject } from 'vue'; // Import inject
+import { ref, inject } from 'vue';
 import { useRouter } from 'vue-router';
 import { apiCall } from '../services/api';
+import { useAuth } from '../composables/useAuth'; // Import Auth
 
 const username = ref('');
 const password = ref('');
@@ -33,8 +34,8 @@ const error = ref('');
 const loading = ref(false);
 const router = useRouter();
 
-// FIX: Inject the reload function from App.vue
 const reloadCompanies = inject('reloadCompanies');
+const { login } = useAuth(); // Destructure login function
 
 const handleLogin = async () => {
     loading.value = true;
@@ -47,19 +48,24 @@ const handleLogin = async () => {
         });
 
         if (response && response.token) {
-            localStorage.setItem('authToken', response.token);
+            // 1. Save Token & User Object via Composable
+            login(response.user, response.token);
 
-            // FIX: Force App.vue to fetch data now that we have a token
+            // 2. Fetch Data immediately (updates cash in header)
             if (reloadCompanies) {
                 await reloadCompanies();
             }
 
-            router.push('/');
+            // 3. Redirect based on Role
+            if (response.user.role === 'admin') {
+                router.push('/'); // Admin goes to Rules/Home
+            } else {
+                router.push('/transacties'); // Companies go to their history
+            }
         } else {
             error.value = "Login failed: No token received";
         }
     } catch (e) {
-        // The apiCall helper now throws proper error messages
         error.value = e.message;
     } finally {
         loading.value = false;
