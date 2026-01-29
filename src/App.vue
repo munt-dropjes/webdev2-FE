@@ -20,16 +20,29 @@
 
                         <li class="nav-item">
                             <router-link to="/transacties" class="nav-link" active-class="active">
-                                <i class="bi bi-list-columns-reverse"></i> {{ isAdmin ? 'Admin Overzicht' : 'Mijn Rekening' }}
+                                {{ isAdmin ? 'Admin Overzicht' : 'Mijn Rekening' }}
                             </router-link>
                         </li>
+                    </ul>
 
-                        <li class="nav-item ms-3">
-                            <button @click="logout" class="btn btn-outline-danger btn-sm mt-1">
-                                <i class="bi bi-box-arrow-right"></i>
-                            </button>
+                    <ul class="navbar-nav ms-3" v-if="username">
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-circle fs-5 me-2"></i>
+                                <span class="fw-bold">{{ username }}</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark shadow" aria-labelledby="navbarDropdown">
+                                <li><h6 class="dropdown-header">Ingelogd als {{ isAdmin ? 'Admin' : 'Bedrijf' }}</h6></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <button @click="logout" class="dropdown-item text-danger">
+                                        <i class="bi bi-box-arrow-right me-2"></i> Uitloggen
+                                    </button>
+                                </li>
+                            </ul>
                         </li>
                     </ul>
+
                 </div>
             </div>
         </nav>
@@ -75,7 +88,7 @@ const {
 } = useGameEngine();
 
 // Initialize Auth
-const { initAuth, isAdmin, logout } = useAuth();
+const { initAuth, isAdmin, logout, username } = useAuth();
 
 onMounted(() => {
     initAuth();
@@ -94,5 +107,10 @@ provide('graphTrigger', graphTrigger);
 </script>
 
 <style>
+/* Highlight active links */
 .navbar-nav .nav-link.active { color: #fff !important; font-weight: bold; border-bottom: 2px solid #0d6efd; }
+
+/* Optional: Make the dropdown nicer */
+.dropdown-menu-dark { background-color: #343a40; border-color: #495057; }
+.dropdown-item:hover { background-color: #495057; }
 </style>
