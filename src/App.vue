@@ -44,7 +44,11 @@
                                 <h6 class="card-title mb-0 fw-bold">{{ company.name }}</h6>
                                 <small class="opacity-75">Aandeel: ƒ {{ (company.stock_price || 0).toLocaleString() }}</small>
                             </div>
-                            <h5 class="mb-0">ƒ {{ (company.cash || 0).toLocaleString() }}</h5>
+
+                            <h5 class="mb-0" v-if="typeof company.cash === 'number'">
+                                ƒ {{ company.cash.toLocaleString() }}
+                            </h5>
+
                         </div>
                     </div>
                 </div>
@@ -74,7 +78,7 @@ const {
 const { initAuth, isAdmin, logout } = useAuth();
 
 onMounted(() => {
-    initAuth(); // Restore user from localStorage
+    initAuth();
     startEngine();
 });
 
