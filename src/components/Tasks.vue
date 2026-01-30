@@ -38,8 +38,15 @@
                             <li><i class="bi bi-trophy-fill text-warning"></i> 1e: ƒ {{ currentTask.reward_p1.toLocaleString() }}</li>
                             <li><i class="bi bi-award text-secondary"></i> 2e: ƒ {{ currentTask.reward_p2.toLocaleString() }}</li>
                             <li><i class="bi bi-award-fill text-danger"></i> 3e: ƒ {{ currentTask.reward_p3.toLocaleString() }}</li>
-                            <li v-if="currentTask.reward_p4"><i class="bi bi-person text-muted"></i> 4e: ƒ {{ currentTask.reward_p4.toLocaleString() }}</li>
-                            <li v-if="currentTask.reward_p5"><i class="bi bi-person text-muted"></i> 5e: ƒ {{ currentTask.reward_p5.toLocaleString() }}</li>
+                            <li><i class="bi bi-person text-muted"></i> 4e: ƒ {{ currentTask.reward_p4.toLocaleString() }}</li>
+                            <li><i class="bi bi-person text-muted"></i> 5e: ƒ {{ currentTask.reward_p5.toLocaleString() }}</li>
+
+                            <li class="border-top pt-2 mt-2 text-danger">
+                                <i class="bi bi-x-circle-fill"></i> <strong>Straf bij falen:</strong> ƒ {{ (currentTask.penalty || 0).toLocaleString() }}
+                            </li>
+                            <li class="text-muted fst-italic mt-1">
+                                <i class="bi bi-exclamation-triangle"></i> Let op: Slechts 1 poging toegestaan!
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -60,7 +67,8 @@
                             <span class="badge bg-secondary">{{ currentTask.category }}</span>
                         </div>
 
-                        <h6 class="fw-bold border-bottom pb-2 mb-3">Reeds Voltooid</h6>
+                        <h6 class="fw-bold border-bottom pb-2 mb-3">Resultaten</h6>
+
                         <div class="table-responsive mb-4">
                             <table class="table table-sm table-striped align-middle">
                                 <thead class="table-light">
@@ -71,47 +79,70 @@
                                 </tr>
                                 </thead>
                                 <tbody>
-                                <tr v-for="entry in currentTask.finished_by" :key="entry.company_id">
+                                <tr v-for="entry in allResults" :key="entry.company_id">
                                     <td>
-                                        <span v-if="entry.rank === 1" class="badge bg-warning text-dark">1e</span>
-                                        <span v-else-if="entry.rank === 2" class="badge bg-secondary">2e</span>
-                                        <span v-else-if="entry.rank === 3" class="badge bg-danger">3e</span>
-                                        <span v-else class="badge bg-light text-dark border">{{ entry.rank }}e</span>
+                                        <span v-if="entry.success && entry.rank === 1" class="badge bg-warning text-dark">1e</span>
+                                        <span v-else-if="entry.success && entry.rank === 2" class="badge bg-secondary">2e</span>
+                                        <span v-else-if="entry.success && entry.rank === 3" class="badge bg-danger">3e</span>
+                                        <span v-else-if="entry.success" class="badge bg-light text-dark border">{{ entry.rank }}e</span>
+
+                                        <span v-else class="badge bg-dark">Gefaald</span>
                                     </td>
-                                    <td class="fw-bold">{{ entry.company_name }}</td>
-                                    <td class="small text-muted">{{ new Date(entry.completed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</td>
+                                    <td class="fw-bold" :class="{'text-decoration-line-through text-muted': !entry.success}">
+                                        {{ entry.company_name }}
+                                    </td>
+                                    <td class="small text-muted">
+                                        {{ new Date(entry.completed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
+                                    </td>
                                 </tr>
-                                <tr v-if="!currentTask.finished_by || currentTask.finished_by.length === 0">
+                                <tr v-if="allResults.length === 0">
                                     <td colspan="3" class="text-center text-muted fst-italic py-3">
-                                        Nog niemand heeft deze opdracht voltooid.
+                                        Nog niemand heeft deze opdracht geprobeerd.
                                     </td>
                                 </tr>
                                 </tbody>
                             </table>
                         </div>
 
-                        <h6 class="fw-bold border-bottom pb-2 mb-3">Nu Voltooien (Klik op volgorde van binnenkomst)</h6>
-                        <div class="row g-2">
-                            <div v-for="c in remainingCompanies" :key="c.id" class="col-md-4 col-6">
-                                <button
-                                    @click="submitCompletion(c.id)"
-                                    class="btn btn-outline-dark w-100 py-3 position-relative"
-                                    :style="{ borderColor: c.color, borderLeftWidth: '5px' }"
-                                    :disabled="processing"
-                                >
-                                    <span class="fw-bold">{{ c.name }}</span>
-                                    <div class="small text-muted mt-1">
-                                        Volgende Rank: <strong>{{ nextRank }}e</strong>
+                        <h6 class="fw-bold border-bottom pb-2 mb-3">Nieuwe Poging Registreren</h6>
+                        <div class="row g-3">
+                            <div v-for="c in remainingCompanies" :key="c.id" class="col-md-6 col-lg-4">
+                                <div class="card h-100 border-0 shadow-sm" :style="{ borderLeft: `5px solid ${c.color} !important` }">
+                                    <div class="card-body p-0">
+                                        <div class="p-2 fw-bold text-truncate border-bottom">{{ c.name }}</div>
+
+                                        <div class="d-flex w-100">
+                                            <button
+                                                @click="submitCompletion(c.id, true, c.name)"
+                                                class="btn btn-success w-50 rounded-0 rounded-bottom-start"
+                                                :disabled="processing"
+                                                title="Gelukt"
+                                            >
+                                                <i class="bi bi-check-lg fs-5"></i>
+                                            </button>
+
+                                            <button
+                                                @click="submitCompletion(c.id, false, c.name)"
+                                                class="btn btn-danger w-50 rounded-0 rounded-bottom-end"
+                                                :disabled="processing"
+                                                title="Mislukt"
+                                            >
+                                                <i class="bi bi-x-lg fs-5"></i>
+                                            </button>
+                                        </div>
+
                                     </div>
-                                </button>
+                                </div>
                             </div>
                         </div>
 
-                        <div v-if="remainingCompanies.length === 0" class="alert alert-success mt-3 text-center">
-                            <i class="bi bi-check-circle-fill me-2"></i> Iedereen heeft deze opdracht voltooid!
+                        <div v-if="remainingCompanies.length === 0" class="alert alert-secondary mt-3 text-center">
+                            <i class="bi bi-check-circle-fill me-2"></i> Iedereen heeft een poging gewaagd!
                         </div>
 
-                        <div v-if="feedback" :class="['alert mt-3', feedbackType === 'error' ? 'alert-danger' : 'alert-success']">
+                        <div v-if="feedback" :class="['alert mt-3', feedbackType === 'error' ? 'alert-danger' : feedbackType === 'penalty' ? 'alert-danger border-danger' : 'alert-success']">
+                            <i v-if="feedbackType === 'success'" class="bi bi-trophy-fill me-2"></i>
+                            <i v-if="feedbackType === 'penalty'" class="bi bi-exclamation-octagon-fill me-2"></i>
                             {{ feedback }}
                         </div>
 
@@ -126,25 +157,22 @@
 import { ref, inject, onMounted, computed } from 'vue';
 import { apiCall } from '../services/api';
 
-const companies = inject('companies'); // Provided by App.vue
-const reloadCompanies = inject('reloadCompanies'); // To update cash after reward
+const companies = inject('companies');
+const reloadCompanies = inject('reloadCompanies');
 
 const tasks = ref([]);
 const loading = ref(false);
-const processing = ref(false); // For button disabling during API call
+const processing = ref(false);
 const selectedCategory = ref('');
 const selectedTaskId = ref('');
 const feedback = ref('');
-const feedbackType = ref('');
+const feedbackType = ref(''); // 'success', 'error', 'penalty'
 
-// 1. Fetch all tasks from API
 const loadTasks = async () => {
     loading.value = true;
     try {
         const data = await apiCall('/api/tasks');
-        if (data) {
-            tasks.value = data;
-        }
+        if (data) tasks.value = data;
     } catch (e) {
         console.error("Failed to load tasks", e);
     } finally {
@@ -152,58 +180,86 @@ const loadTasks = async () => {
     }
 };
 
-// 2. Compute Unique Categories
 const categories = computed(() => {
     const unique = new Set(tasks.value.map(t => t.category));
-    return Array.from(unique).sort(); // Alphabetical sort, or custom logic if needed
+    return Array.from(unique).sort();
 });
 
-// 3. Filter Tasks by Category
 const filteredTasks = computed(() => {
     if (!selectedCategory.value) return [];
     return tasks.value.filter(t => t.category === selectedCategory.value);
 });
 
-// 4. Get Current Task Object
 const currentTask = computed(() => {
     if (!selectedTaskId.value) return null;
     return tasks.value.find(t => t.id === selectedTaskId.value);
 });
 
-// 5. Calculate who is left
+// MERGE LOGIC: Combine finished_by (Success) and failed_by (Fail)
+const allResults = computed(() => {
+    if (!currentTask.value) return [];
+
+    const finished = (currentTask.value.finished_by || []).map(entry => ({
+        ...entry,
+        success: true // Explicitly mark as success for UI
+    }));
+
+    const failed = (currentTask.value.failed_by || []).map(entry => ({
+        ...entry,
+        success: false, // Explicitly mark as failed
+        rank: null // Failures have no rank
+    }));
+
+    // Merge and sort by completed_at
+    const combined = [...finished, ...failed];
+    return combined.sort((a, b) => new Date(a.completed_at) - new Date(b.completed_at));
+});
+
+// FILTER LOGIC: Remove companies that are in EITHER list
 const remainingCompanies = computed(() => {
     if (!currentTask.value) return [];
+
     const finishedIds = (currentTask.value.finished_by || []).map(f => f.company_id);
-    // Return companies that are NOT in the finished list
-    return companies.filter(c => !finishedIds.includes(c.id));
+    const failedIds = (currentTask.value.failed_by || []).map(f => f.company_id);
+
+    const allAttemptedIds = [...finishedIds, ...failedIds];
+
+    return companies.filter(c => !allAttemptedIds.includes(c.id));
 });
 
-// 6. Predict Next Rank
-const nextRank = computed(() => {
-    if (!currentTask.value) return 1;
-    return (currentTask.value.finished_by?.length || 0) + 1;
-});
+/**
+ * Submit the result
+ */
+const submitCompletion = async (companyId, isSuccess, companyName) => {
+    const action = isSuccess ? "SUCCES" : "FALEN";
+    const msg = isSuccess
+        ? `Weet je zeker dat ${companyName} de opdracht heeft voltooid?`
+        : `Weet je zeker dat ${companyName} heeft GEFAALD? Dit kost hen de boete.`;
 
-// 7. Submit Action
-const submitCompletion = async (companyId) => {
+    if (!confirm(`${action}: ${msg}`)) return;
+
     processing.value = true;
     feedback.value = '';
 
     try {
-        // API: POST /api/tasks/complete
-        // The backend calculates the rank and reward automatically
         const result = await apiCall('/api/tasks/complete', 'POST', {
             company_id: companyId,
-            task_id: selectedTaskId.value
+            task_id: selectedTaskId.value,
+            success: isSuccess
         });
 
-        feedbackType.value = 'success';
-        feedback.value = `Succes! ${result.company_name} heeft "${result.task_name}" voltooid en ƒ ${result.reward.toLocaleString()} verdiend.`;
+        if (isSuccess) {
+            feedbackType.value = 'success';
+            // Result likely contains: reward, success=true
+            feedback.value = `${result.company_name} geslaagd! Beloning: ƒ ${result.reward.toLocaleString()}.`;
+        } else {
+            feedbackType.value = 'penalty';
+            // Check if result has penalty field, or just imply it from success=false
+            feedback.value = `${result.company_name} gefaald.`;
+        }
 
-        // Refresh Data:
-        // 1. Reload Tasks (to update the 'finished_by' list and ranks)
+        // Refresh data to update tables and lists
         await loadTasks();
-        // 2. Reload Companies (to update cash balance in the header)
         await reloadCompanies();
 
     } catch (e) {
@@ -211,10 +267,7 @@ const submitCompletion = async (companyId) => {
         feedback.value = e.message || "Er ging iets mis.";
     } finally {
         processing.value = false;
-        // Clear success message after 3 seconds
-        setTimeout(() => {
-            if(feedbackType.value === 'success') feedback.value = '';
-        }, 4000);
+        setTimeout(() => { feedback.value = ''; }, 5000);
     }
 };
 
@@ -224,7 +277,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.opdrachten-container {
-    min-height: 80vh;
+.opdrachten-container { min-height: 80vh; }
+
+/* Custom button styling for the 50/50 split */
+.rounded-bottom-start {
+    border-bottom-left-radius: 0.375rem !important; /* Bootstrap default radius */
+}
+.rounded-bottom-end {
+    border-bottom-right-radius: 0.375rem !important;
 }
 </style>

@@ -8,12 +8,17 @@
             <div style="position: relative; height: 450px; width: 100%;">
                 <canvas ref="chartCanvas"></canvas>
             </div>
+
+            <div v-if="!history.labels.length" class="position-absolute top-50 start-50 translate-middle text-muted">
+                <div class="spinner-border spinner-border-sm me-2"></div>
+                Laden...
+            </div>
         </div>
     </div>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, inject, ref, watch, shallowRef } from 'vue';
+import { onMounted, onUnmounted, inject, ref, watch, shallowRef, nextTick } from 'vue';
 import Chart from 'chart.js/auto';
 
 const history = inject('history');
@@ -23,11 +28,12 @@ const chartInstance = shallowRef(null);
 
 const createChart = () => {
     if (!chartCanvas.value) return;
-    const ctx = chartCanvas.value.getContext('2d');
 
     if (chartInstance.value) {
         chartInstance.value.destroy();
     }
+
+    const ctx = chartCanvas.value.getContext('2d');
 
     chartInstance.value = new Chart(ctx, {
         type: 'line',
@@ -44,7 +50,9 @@ const createChart = () => {
                 point: { radius: 3, hitRadius: 10 }
             },
             scales: {
-                y: { ticks: { callback: (val) => 'ƒ ' + val.toLocaleString() } }
+                y: {
+                    ticks: { callback: (val) => 'ƒ ' + val.toLocaleString() }
+                }
             },
             plugins: { legend: { position: 'bottom' } }
         }
@@ -59,9 +67,6 @@ watch(graphTrigger, () => {
     }
 
     const chart = chartInstance.value;
-
-    // OPTIMIZED UPDATE:
-    // Update data arrays in-place instead of destroying the canvas
     chart.data.labels = [...history.labels];
 
     chart.data.datasets.forEach((dataset, i) => {
@@ -74,7 +79,9 @@ watch(graphTrigger, () => {
     chart.update('none');
 });
 
-onMounted(() => {
+onMounted(async () => {
+    await nextTick();
+
     if (history.labels.length > 0) {
         createChart();
     }
